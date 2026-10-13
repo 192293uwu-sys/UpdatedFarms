@@ -29,7 +29,7 @@ task.spawn(function()
 				end
 			else
 				-- Ability #2: "Arrow Rain" tool
-				local tool = backpack.["Pulse Waves"]
+				local tool = backpack:GetChildren()[1]
 				if tool and tool:FindFirstChild("abilityEvent") then
 					tool.abilityEvent:FireServer()
 				end
