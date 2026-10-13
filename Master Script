@@ -45,7 +45,29 @@ local thresholdSeconds = (config.maxMinutes - 4) * 60
 local remotes = ReplicatedStorage:WaitForChild("remotes")
 local replayEvent = remotes:WaitForChild("replayDungeon")
 
+------------------------------------------------------------------
+-- Shared replay + guard (only fires once)
+------------------------------------------------------------------
 local fired = false
+
+local function doReplay(reason)
+	if fired then return end
+	fired = true
+
+	print(("[AutoFarm] Replaying %s -- %s"):format(dungeonName, reason))
+
+	replayEvent:FireServer({
+		dungeonProgress = "",
+		dungeonStarted = true,
+		hardcore = true,
+		dungeonName = dungeonName,
+		isHardcore = true,
+	})
+end
+
+------------------------------------------------------------------
+-- 1) Timer-based replay (original logic)
+------------------------------------------------------------------
 task.spawn(function()
 	while not fired do
 		task.wait(1)
@@ -58,18 +80,47 @@ task.spawn(function()
 		if label and label:IsA("TextLabel") then
 			local secs = parseTime(label.Text)
 			if secs and secs > 0 and secs <= thresholdSeconds then
-				fired = true
-				print(("[AutoFarm] Time %s <= threshold (%d:%02d) -- replaying %s")
-					:format(label.Text, math.floor(thresholdSeconds / 60), thresholdSeconds % 60, dungeonName))
-
-				replayEvent:FireServer({
-					dungeonProgress = "",
-					dungeonStarted = true,
-					hardcore = true,
-					dungeonName = dungeonName,
-					isHardcore = true,
-				})
+				doReplay(("time %s <= threshold (%d:%02d)")
+					:format(label.Text, math.floor(thresholdSeconds / 60), thresholdSeconds % 60))
 			end
+		end
+	end
+end)
+
+------------------------------------------------------------------
+-- 2) NEW: Idle-based replay (15s without moving)
+------------------------------------------------------------------
+local IDLE_TIMEOUT   = 15   -- seconds of no movement to trigger replay
+local MOVE_THRESHOLD = 1    -- studs of movement to count as "moved"
+
+task.spawn(function()
+	local lastPosition = nil
+	local lastMoveTime = tick()
+
+	while not fired do
+		task.wait(0.5)
+
+		local char = LocalPlayer.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+
+		if root then
+			local pos = root.Position
+
+			if lastPosition then
+				if (pos - lastPosition).Magnitude >= MOVE_THRESHOLD then
+					lastMoveTime = tick()
+				end
+			else
+				lastMoveTime = tick()
+			end
+
+			lastPosition = pos
+
+			if tick() - lastMoveTime >= IDLE_TIMEOUT then
+				doReplay(("%d seconds idle"):format(IDLE_TIMEOUT))
+			end
+		else
+			lastPosition = nil
 		end
 	end
 end)
