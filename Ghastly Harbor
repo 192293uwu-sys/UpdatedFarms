@@ -1,10 +1,6 @@
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
-if player.Name ~= "tewf4vz" then
-	return
-end
-
 do
 	local startEvent = game:GetService("ReplicatedStorage").remotes.changeStartValue
 	local ok, err = pcall(function()
