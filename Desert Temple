@@ -1,0 +1,279 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- Only run for this username
+if player.Name ~= "tewf4vz" then
+	return
+end
+
+do
+	local ok, err = pcall(function()
+		ReplicatedStorage.remotes.changeStartValue:FireServer()
+	end)
+	if not ok then
+		warn("[StartEvent] Failed to fire: " .. tostring(err))
+	end
+end
+
+task.spawn(function()
+	local backpack = player:WaitForChild("Backpack")
+	local useFirst = true
+
+	while true do
+		task.wait(3)
+
+		local ok, err = pcall(function()
+			if useFirst then
+				-- Ability #1: second child of Backpack
+				local tool = backpack:GetChildren()[2]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			else
+				-- Ability #2: "Arrow Rain" tool
+				local tool = backpack:GetChildren()[1]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			end
+		end)
+
+		if not ok then
+			warn("[AbilityLoop] " .. tostring(err))
+		end
+
+		useFirst = not useFirst
+	end
+end)
+
+local NOCLIP = true
+local noclipConnection = nil
+
+local function enableNoclip(char)
+	if noclipConnection then
+		noclipConnection:Disconnect()
+		noclipConnection = nil
+	end
+
+	if not NOCLIP then return end
+
+	noclipConnection = RunService.Stepped:Connect(function()
+		if not char or not char.Parent then
+			if noclipConnection then
+				noclipConnection:Disconnect()
+				noclipConnection = nil
+			end
+			return
+		end
+
+		for _, d in ipairs(char:GetDescendants()) do
+			if d:IsA("BasePart") then
+				d.CanCollide = false
+			end
+		end
+	end)
+end
+
+local character, humanoid, rootPart
+
+local function bindCharacter(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid")
+	rootPart = char:WaitForChild("HumanoidRootPart")
+	enableNoclip(char)
+end
+
+if player.Character then
+	bindCharacter(player.Character)
+end
+player.CharacterAdded:Connect(bindCharacter)
+
+local function isAlive()
+	return character and character.Parent
+		and humanoid and humanoid.Health > 0
+		and rootPart and rootPart.Parent
+end
+
+local function isRoomName(n)
+	return type(n) == "string" and n:match("^[Rr][Oo][Oo][Mm]%d+$") ~= nil
+end
+
+local function roomNum(n)
+	return tonumber(n:match("%d+")) or 0
+end
+
+local function findRooms()
+	local dungeon = workspace:FindFirstChild("dungeon")
+	if not dungeon then return nil end
+
+	local list = {}
+
+	for _, c in ipairs(dungeon:GetChildren()) do
+		if isRoomName(c.Name) then
+			list[#list + 1] = c
+		end
+	end
+
+	if #list == 0 then
+		for _, c in ipairs(dungeon:GetDescendants()) do
+			if isRoomName(c.Name) then
+				list[#list + 1] = c
+			end
+		end
+	end
+
+	table.sort(list, function(a, b)
+		local na, nb = roomNum(a.Name), roomNum(b.Name)
+		if na ~= nb then return na < nb end
+		return a:GetFullName() < b:GetFullName()
+	end)
+
+	return list
+end
+
+local function getEnemyFolder(room)
+	return room:FindFirstChild("enemyFolder", true)
+end
+
+local function getClosestEnemy(folder, fromPos)
+	if not folder or not folder.Parent then return nil end
+	local best, bestDist = nil, math.huge
+	for _, c in ipairs(folder:GetChildren()) do
+		if c:IsA("Model") then
+			local hum = c:FindFirstChildOfClass("Humanoid")
+			if hum and hum.Health > 0 then
+				local hrp = c:FindFirstChild("HumanoidRootPart") or c.PrimaryPart
+				if hrp then
+					local dx = hrp.Position.X - fromPos.X
+					local dy = hrp.Position.Y - fromPos.Y
+					local dz = hrp.Position.Z - fromPos.Z
+					local d = dx * dx + dy * dy + dz * dz
+					if d < bestDist then
+						best, bestDist = c, d
+					end
+				end
+			end
+		end
+	end
+	return best
+end
+
+local REACH         = 6      -- stop and hold when this close (studs)
+local STUCK_TIMEOUT = 5      -- give up on unreachable target
+local LOOP_WAIT     = 0.03   -- ~33 Hz movement updates
+
+local function walkToEnemy(enemy)
+	local lastPos = rootPart.Position
+	local lastProgress = os.clock()
+
+	while true do
+		if not isAlive() then return "died" end
+
+		local hum = enemy:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 or not enemy.Parent then
+			return "target_died"
+		end
+
+		local hrp = enemy:FindFirstChild("HumanoidRootPart") or enemy.PrimaryPart
+		if not hrp then return "no_target" end
+
+		local myPos = rootPart.Position
+		local tgtPos = hrp.Position
+
+		local dx, dz = myPos.X - tgtPos.X, myPos.Z - tgtPos.Z
+		local dist = math.sqrt(dx * dx + dz * dz)
+
+		if dist > REACH then
+			humanoid:MoveTo(tgtPos)
+		else
+			humanoid:MoveTo(myPos) -- hold position
+		end
+
+		-- Stuck detection
+		local moved = (myPos - lastPos).Magnitude
+		if moved > 2 then
+			lastPos = myPos
+			lastProgress = os.clock()
+		elseif os.clock() - lastProgress > STUCK_TIMEOUT and dist > REACH then
+			return "stuck"
+		end
+
+		task.wait(LOOP_WAIT)
+	end
+end
+
+local SPAWN_WAIT  = 2.5   -- max wait for enemies to populate room
+local CLEAR_GRACE = 0.4   -- confirm-empty time before leaving
+
+local function processRoom(room)
+	local folder = getEnemyFolder(room)
+	if not folder then return end
+
+	local t0 = os.clock()
+	while os.clock() - t0 < SPAWN_WAIT do
+		if #folder:GetChildren() > 0 then break end
+		task.wait(0.15)
+	end
+
+	while true do
+		if not isAlive() then return end
+
+		local enemy = getClosestEnemy(folder, rootPart.Position)
+		if not enemy then
+			task.wait(CLEAR_GRACE)
+			enemy = getClosestEnemy(folder, rootPart.Position)
+			if not enemy then
+				return -- room cleared
+			end
+		end
+
+		local result = walkToEnemy(enemy)
+		if result == "died" then return end
+	end
+end
+
+local function processBoss()
+	local dungeon = workspace:FindFirstChild("dungeon")
+	if not dungeon then return end
+
+	local bossRoom = dungeon:FindFirstChild("bossRoom")
+	if not bossRoom then return end
+
+	local folder = getEnemyFolder(bossRoom)
+	if not folder then return end
+
+	-- Look specifically for Sand Giant, or fallback to closest enemy in boss room
+	local boss = folder:FindFirstChild("Sand Giant") or getClosestEnemy(folder, rootPart.Position)
+	if not boss then return end
+
+	while isAlive() and boss and boss.Parent do
+		local hum = boss:FindFirstChildOfClass("Humanoid")
+		if not hum or hum.Health <= 0 then break end
+
+		local result = walkToEnemy(boss)
+		if result == "died" or result == "target_died" then break end
+	end
+end
+
+task.spawn(function()
+	while true do
+		local rooms = findRooms()
+
+		if rooms and #rooms > 0 then
+			for _, room in ipairs(rooms) do
+				if not isAlive() then break end
+				processRoom(room)
+			end
+		end
+
+		-- Defeat Boss if available
+		if isAlive() then
+			processBoss()
+		end
+
+		task.wait(0.5)
+	end
+end)
