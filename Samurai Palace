@@ -1,0 +1,149 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+if player.Name ~= "tewf4vz" then
+	return
+end
+
+do
+	local startEvent = game:GetService("ReplicatedStorage").remotes.changeStartValue
+	local ok, err = pcall(function()
+		startEvent:FireServer()
+	end)
+	if not ok then
+		warn("[StartEvent] Failed to fire: " .. tostring(err))
+	end
+end
+
+task.spawn(function()
+	local backpack = player:WaitForChild("Backpack")
+	local useFirst = true
+
+	while true do
+		task.wait(3)
+
+		local ok, err = pcall(function()
+			if useFirst then
+				local tool = backpack:GetChildren()[2]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			else
+				local tool = backpack:GetChildren()[1]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			end
+		end)
+
+		if not ok then
+			warn("[AbilityLoop] " .. tostring(err))
+		end
+
+		useFirst = not useFirst
+	end
+end)
+
+task.wait(4.5)
+
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local waypoints = {
+	Vector3.new(-85.538, 4.999, -119.681),
+	Vector3.new(-16.249, 5.000, -46.181),
+	Vector3.new(-11.831, 5.000, 12.514),
+	Vector3.new(55.097, 5.000, -14.015),
+	Vector3.new(34.507, 5.000, 1.296),
+	Vector3.new(31.267, 16.567, 88.431),
+	Vector3.new(76.175, 16.567, 112.923),
+	Vector3.new(-14.932, 16.567, 117.940),
+	Vector3.new(24.251, 16.567, 127.832),
+	Vector3.new(26.139, 16.988, 204.375),
+	Vector3.new(59.778, 16.890, 228.453),
+	Vector3.new(-10.131, 16.970, 233.309),
+	Vector3.new(-40.211, 16.669, 255.347),
+	Vector3.new(-41.912, 16.669, 273.134),
+	Vector3.new(-7.322, 16.669, 274.434),
+	Vector3.new(-6.308, 17.000, 294.415),
+	Vector3.new(82.847, 72.147, 296.564),
+	Vector3.new(58.453, 73.099, 226.344),
+	Vector3.new(32.067, 72.799, 167.944),
+	Vector3.new(-41.504, 72.799, 229.875),
+	Vector3.new(-132.906, 70.062, 232.630),
+	Vector3.new(-196.794, 70.456, 232.765),
+	Vector3.new(-234.652, 69.000, 257.120),
+	Vector3.new(-300.870, 69.000, 322.902),
+	Vector3.new(-297.400, 70.062, 379.949),
+	Vector3.new(-240.655, 70.062, 409.427),
+	Vector3.new(-308.976, 70.342, 469.096),
+	Vector3.new(-244.102, 70.062, 500.694),
+	Vector3.new(-149.209, 69.000, 566.938),
+	Vector3.new(16.900, 67.321, 597.961),
+	Vector3.new(165.065, 69.402, 607.110),
+	Vector3.new(188.890, 69.402, 660.858),
+	Vector3.new(174.241, 69.402, 741.306),
+	Vector3.new(129.317, 69.402, 918.754),
+	Vector3.new(21.640, 69.323, 977.118),
+	Vector3.new(-178.967, 71.089, 1005.541),
+	Vector3.new(-228.542, 71.089, 1011.032),
+}
+
+local REACH_DISTANCE = 4
+local STUCK_TIMEOUT = 8
+local MAX_TOTAL_TIME = 2400
+local UPDATE_INTERVAL = 0.1
+
+local function walkTo(target)
+	local lastPos = rootPart.Position
+	local lastProgressTime = os.clock()
+
+	while true do
+		if not character.Parent or not humanoid.Parent or humanoid.Health <= 0 then
+			return false, "died"
+		end
+
+		local currentPos = rootPart.Position
+		local distance = (Vector3.new(currentPos.X, 0, currentPos.Z) 
+		                 - Vector3.new(target.X, 0, target.Z)).Magnitude
+
+		if distance <= REACH_DISTANCE then
+			humanoid:MoveTo(currentPos)
+			return true
+		end
+
+		if (currentPos - lastPos).Magnitude > 1 then
+			lastPos = currentPos
+			lastProgressTime = os.clock()
+		elseif os.clock() - lastProgressTime > STUCK_TIMEOUT then
+			humanoid:MoveTo(currentPos)
+			return false, "stuck"
+		end
+
+		humanoid:MoveTo(target)
+		task.wait(UPDATE_INTERVAL)
+	end
+end
+
+local runStart = os.clock()
+for i, pos in ipairs(waypoints) do
+	if os.clock() - runStart > MAX_TOTAL_TIME then
+		warn("[WaypointWalker] Max total time reached, stopping.")
+		break
+	end
+
+	print(string.format("[WaypointWalker] Walking to #%d: %s", i, tostring(pos)))
+	local ok, reason = walkTo(pos)
+
+	if ok then
+		print(string.format("[WaypointWalker] Reached #%d", i))
+	else
+		warn(string.format("[WaypointWalker] Failed to reach #%d (%s)", i, reason or "unknown"))
+		if reason == "died" then break end
+	end
+end
+
+print("[WaypointWalker] Done.")
