@@ -13,9 +13,6 @@ do
 	end
 end
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-
 task.spawn(function()
 	local backpack = player:WaitForChild("Backpack")
 
