@@ -1,0 +1,75 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local DungeonConfig = {
+	["Desert Temple"]    = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Desert%20Temple",       maxMinutes = 10 },
+	["Winter Outpost"]   = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Winter%20Outpost",     maxMinutes = 10 },
+	["Pirate Island"]    = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Pirate%20Island",      maxMinutes = 11 },
+	["King's Castle"]    = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/King's%20Castle",      maxMinutes = 11 },
+	["The Underworld"]   = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/The%20Underworld",     maxMinutes = 11 },
+	["Samurai Palace"]   = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Samurai%20Palace",     maxMinutes = 11 },
+	["Canals"]           = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Canals",              maxMinutes = 10 },
+	["Ghastly Harbor"]   = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Ghastly%20Harbor",     maxMinutes = 12 },
+	["Steampunk Sewers"] = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Steampunk%20Sewers",   maxMinutes = 9  },
+	["Orbital Outpost"]  = { url = "https://raw.githubusercontent.com/192293uwu-sys/UpdatedFarms/refs/heads/main/Orbital%20Outpost",   maxMinutes = 10 },
+}
+
+local dungeonNameObj = workspace:WaitForChild("dungeonName")
+local dungeonName = dungeonNameObj.Value
+
+local config = DungeonConfig[dungeonName]
+if not config then
+	warn(("[AutoFarm] Unknown dungeon name: %s"):format(tostring(dungeonName)))
+	return
+end
+
+print(("[AutoFarm] Detected dungeon: %s -- loading farm"):format(dungeonName))
+
+local ok, err = pcall(function()
+	loadstring(game:HttpGet(config.url))()
+end)
+if not ok then
+	warn("[AutoFarm] Failed to load farm: " .. tostring(err))
+end
+
+local function parseTime(text)
+	if type(text) ~= "string" then return nil end
+	local m, s = text:match("(%d+):(%d+)")
+	if not m then return nil end
+	return tonumber(m) * 60 + tonumber(s)
+end
+
+local thresholdSeconds = (config.maxMinutes - 4) * 60
+
+local remotes = ReplicatedStorage:WaitForChild("remotes")
+local replayEvent = remotes:WaitForChild("replayDungeon")
+
+local fired = false
+task.spawn(function()
+	while not fired do
+		task.wait(1)
+
+		local pg = LocalPlayer:FindFirstChild("PlayerGui")
+		local tGui = pg and pg:FindFirstChild("timeLeftGui")
+		local frame = tGui and tGui:FindFirstChild("Frame")
+		local label = frame and frame:FindFirstChild("time")
+
+		if label and label:IsA("TextLabel") then
+			local secs = parseTime(label.Text)
+			if secs and secs > 0 and secs <= thresholdSeconds then
+				fired = true
+				print(("[AutoFarm] Time %s <= threshold (%d:%02d) -- replaying %s")
+					:format(label.Text, math.floor(thresholdSeconds / 60), thresholdSeconds % 60, dungeonName))
+
+				replayEvent:FireServer({
+					dungeonProgress = "",
+					dungeonStarted = true,
+					hardcore = true,
+					dungeonName = dungeonName,
+					isHardcore = true,
+				})
+			end
+		end
+	end
+end)
