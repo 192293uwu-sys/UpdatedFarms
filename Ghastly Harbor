@@ -11,8 +11,6 @@ do
 	end
 end
 
-local player = Players.LocalPlayer
-
 task.spawn(function()
 	local backpack = player:WaitForChild("Backpack")
 
