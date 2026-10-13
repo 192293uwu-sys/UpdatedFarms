@@ -13,34 +13,73 @@ do
 	end
 end
 
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
 task.spawn(function()
 	local backpack = player:WaitForChild("Backpack")
+
+	-- Wait until there are at least 2 tools, then grab stable refs
+	local tool1, tool2
+
+	local function refreshTools()
+		-- Look in both Backpack and Character, since equipped tools move there
+		local pool = {}
+		local function collect(container)
+			if not container then return end
+			for _, c in ipairs(container:GetChildren()) do
+				if c:IsA("Tool") then pool[#pool + 1] = c end
+			end
+		end
+		collect(backpack)
+		collect(player.Character)
+
+		-- Sort by name so "slot 1 / slot 2" are consistent every refresh
+		table.sort(pool, function(a, b) return a.Name < b.Name end)
+
+		tool1 = pool[1]
+		tool2 = pool[2]
+	end
+
+	-- Wait for at least 2 tools to exist
+	while not (tool1 and tool2) do
+		refreshTools()
+		if not (tool1 and tool2) then task.wait(0.25) end
+	end
+
 	local useFirst = true
 
 	while true do
 		task.wait(3)
 
+		-- Re-validate refs; refresh only if a tool got destroyed
+		if not (tool1 and tool1.Parent) or not (tool2 and tool2.Parent) then
+			tool1, tool2 = nil, nil
+			refreshTools()
+			if not (tool1 and tool2) then continue end
+		end
+
+		local tool = useFirst and tool1 or tool2
+		useFirst = not useFirst
+
 		local ok, err = pcall(function()
-			if useFirst then
-				-- Ability #1: second child of Backpack
-				local tool = backpack:GetChildren()[2]
-				if tool and tool:FindFirstChild("abilityEvent") then
-					tool.abilityEvent:FireServer()
-				end
-			else
-				-- Ability #2: "Arrow Rain" tool
-				local tool = backpack:GetChildren()[1]
-				if tool and tool:FindFirstChild("abilityEvent") then
-					tool.abilityEvent:FireServer()
-				end
+			local ev = tool:FindFirstChild("abilityEvent")
+			if not ev then return end
+
+			-- Equip if the server requires it (common cause of silent no-op)
+			local char = player.Character
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hum and tool.Parent ~= char then
+				hum:EquipTool(tool)
+				task.wait(0.1)
 			end
+
+			ev:FireServer()
 		end)
 
 		if not ok then
 			warn("[AbilityLoop] " .. tostring(err))
 		end
-
-		useFirst = not useFirst
 	end
 end)
 
