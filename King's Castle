@@ -1,0 +1,142 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+if player.Name ~= "tewf4vz" then
+	return
+end
+
+do
+	local startEvent = game:GetService("ReplicatedStorage").remotes.changeStartValue
+	local ok, err = pcall(function()
+		startEvent:FireServer()
+	end)
+	if not ok then
+		warn("[StartEvent] Failed to fire: " .. tostring(err))
+	end
+end
+
+task.spawn(function()
+	local backpack = player:WaitForChild("Backpack")
+	local useFirst = true
+
+	while true do
+		task.wait(3)
+
+		local ok, err = pcall(function()
+			if useFirst then
+				local tool = backpack:GetChildren()[2]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			else
+				local tool = backpack:GetChildren()[1]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			end
+		end)
+
+		if not ok then
+			warn("[AbilityLoop] " .. tostring(err))
+		end
+
+		useFirst = not useFirst
+	end
+end)
+
+task.wait(4.5)
+
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local waypoints = {
+	Vector3.new(-192.730, 4.800, 893.906),
+	Vector3.new(-187.198, 5.000, 835.969),
+	Vector3.new(-150.355, 4.800, 768.553),
+	Vector3.new(-114.249, 5.000, 680.448),
+	Vector3.new(-27.118, 4.795, 581.269),
+	Vector3.new(-11.276, 5.080, 458.923),
+	Vector3.new(-10.674, 5.080, 382.571),
+	Vector3.new(-10.805, 5.080, 250.621),
+	Vector3.new(-11.852, 5.480, -1.310),
+	Vector3.new(-11.281, 5.730, -144.955),
+	Vector3.new(15, 5, -175),
+	Vector3.new(-55.202, 5.500, -174.375),
+	Vector3.new(-123.714, 5.559, -173.534),
+	Vector3.new(-128.508, 5.600, -238.356),
+	Vector3.new(-145.134, 5.600, -323.198),
+	Vector3.new(-129.102, 5.600, -240.032),
+	Vector3.new(-128.562, 5.559, -178.147),
+	Vector3.new(-64.960, 5.499, -172.953),
+	Vector3.new(23.490, 5.500, -172.061),
+	Vector3.new(14.711, 5.500, -186.730),
+	Vector3.new(27.472, 5.500, -231.060),
+	Vector3.new(29.684, 5.631, -309.617),
+	Vector3.new(30.259, 5.000, -358.765),
+	Vector3.new(4.994, 5.000, -422.825),
+	Vector3.new(31.087, 6.443, -460.807),
+	Vector3.new(35.415, 7.159, -610.808),
+	Vector3.new(-35.704, 7.159, -616.912),
+	Vector3.new(-120.633, 7.159, -617.944),
+	Vector3.new(-395.544, -7.641, -618.370),
+	Vector3.new(-483.662, -0.641, -618.592),
+}
+
+local REACH_DISTANCE = 4
+local STUCK_TIMEOUT = 8
+local MAX_TOTAL_TIME = 2400
+local UPDATE_INTERVAL = 0.1
+
+local function walkTo(target)
+	local lastPos = rootPart.Position
+	local lastProgressTime = os.clock()
+
+	while true do
+		if not character.Parent or not humanoid.Parent or humanoid.Health <= 0 then
+			return false, "died"
+		end
+
+		local currentPos = rootPart.Position
+		local distance = (Vector3.new(currentPos.X, 0, currentPos.Z) 
+		                 - Vector3.new(target.X, 0, target.Z)).Magnitude
+
+		if distance <= REACH_DISTANCE then
+			humanoid:MoveTo(currentPos)
+			return true
+		end
+
+		if (currentPos - lastPos).Magnitude > 1 then
+			lastPos = currentPos
+			lastProgressTime = os.clock()
+		elseif os.clock() - lastProgressTime > STUCK_TIMEOUT then
+			humanoid:MoveTo(currentPos)
+			return false, "stuck"
+		end
+
+		humanoid:MoveTo(target)
+		task.wait(UPDATE_INTERVAL)
+	end
+end
+
+local runStart = os.clock()
+for i, pos in ipairs(waypoints) do
+	if os.clock() - runStart > MAX_TOTAL_TIME then
+		warn("[WaypointWalker] Max total time reached, stopping.")
+		break
+	end
+
+	print(string.format("[WaypointWalker] Walking to #%d: %s", i, tostring(pos)))
+	local ok, reason = walkTo(pos)
+
+	if ok then
+		print(string.format("[WaypointWalker] Reached #%d", i))
+	else
+		warn(string.format("[WaypointWalker] Failed to reach #%d (%s)", i, reason or "unknown"))
+		if reason == "died" then break end
+	end
+end
+
+print("[WaypointWalker] Done.")
