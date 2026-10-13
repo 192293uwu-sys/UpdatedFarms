@@ -1,0 +1,434 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+do
+	local startEvent = game:GetService("ReplicatedStorage").remotes.changeStartValue
+	local ok, err = pcall(function()
+		startEvent:FireServer()
+	end)
+	if not ok then
+		warn("[StartEvent] Failed to fire: " .. tostring(err))
+	end
+end
+
+local function getBackpack()
+	return player:FindFirstChild("Backpack") or player:WaitForChild("Backpack", 5)
+end
+
+task.spawn(function()
+	local backpack = player:WaitForChild("Backpack")
+	local useFirst = true
+
+	while true do
+		task.wait(3)
+
+		local ok, err = pcall(function()
+			if useFirst then
+				local tool = backpack:GetChildren()[2]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			else
+				local tool = backpack:GetChildren()[1]
+				if tool and tool:FindFirstChild("abilityEvent") then
+					tool.abilityEvent:FireServer()
+				end
+			end
+		end)
+
+		if not ok then
+			warn("[AbilityLoop] " .. tostring(err))
+		end
+
+		useFirst = not useFirst
+	end
+end)
+
+task.wait(4.5)
+
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Waypoint list (in order)
+local waypoints = {
+	Vector3.new(32.851, 9.401, 157.993),
+	Vector3.new(38.615, 9.381, 157.704),
+	Vector3.new(42.434, 9.382, 155.000),
+	Vector3.new(45.864, 9.382, 151.254),
+	Vector3.new(46.815, 9.382, 146.512),
+	Vector3.new(46.726, 9.382, 141.770),
+	Vector3.new(49.770, 9.382, 137.883),
+	Vector3.new(51.682, 9.628, 133.491),
+	Vector3.new(54.983, 9.630, 129.887),
+	Vector3.new(58.283, 9.631, 126.282),
+	Vector3.new(62.094, 9.631, 123.770),
+	Vector3.new(66.881, 9.631, 123.559),
+	Vector3.new(71.833, 9.951, 123.341),
+	Vector3.new(76.949, 10.695, 123.116),
+	Vector3.new(81.117, 11.303, 122.933),
+	Vector3.new(85.376, 11.926, 121.260),
+	Vector3.new(90.492, 12.671, 121.035),
+	Vector3.new(95.703, 13.431, 120.805),
+	Vector3.new(100.819, 14.177, 120.580),
+	Vector3.new(105.465, 14.871, 118.485),
+	Vector3.new(110.532, 15.095, 118.262),
+	Vector3.new(115.607, 15.095, 118.039),
+	Vector3.new(120.639, 15.098, 117.818),
+	Vector3.new(125.771, 15.140, 117.592),
+	Vector3.new(130.941, 15.095, 117.364),
+	Vector3.new(135.919, 15.095, 117.145),
+	Vector3.new(139.155, 17.187, 117.003),
+	Vector3.new(144.148, 19.089, 116.783),
+	Vector3.new(149.414, 19.093, 116.552),
+	Vector3.new(151.621, 19.093, 113.560),
+	Vector3.new(151.423, 19.093, 109.061),
+	Vector3.new(152.038, 19.088, 104.197),
+	Vector3.new(155.144, 19.090, 100.804),
+	Vector3.new(156.381, 19.085, 95.130),
+	Vector3.new(156.154, 19.089, 89.960),
+	Vector3.new(156.669, 19.090, 84.589),
+	Vector3.new(159.775, 19.089, 81.197),
+	Vector3.new(160.532, 19.090, 76.950),
+	Vector3.new(160.284, 19.088, 71.301),
+	Vector3.new(161.678, 19.089, 65.873),
+	Vector3.new(164.914, 19.090, 62.339),
+	Vector3.new(168.085, 19.089, 58.876),
+	Vector3.new(171.579, 19.090, 55.059),
+	Vector3.new(174.621, 19.083, 51.737),
+	Vector3.new(178.051, 19.088, 47.991),
+	Vector3.new(181.480, 19.089, 44.245),
+	Vector3.new(185.675, 19.090, 43.184),
+	Vector3.new(190.270, 19.087, 42.982),
+	Vector3.new(195.152, 19.089, 42.767),
+	Vector3.new(199.173, 19.090, 42.590),
+	Vector3.new(206.258, 19.089, 42.278),
+	Vector3.new(211.427, 19.090, 42.051),
+	Vector3.new(217.650, 19.089, 41.777),
+	Vector3.new(223.585, 19.090, 41.515),
+	Vector3.new(230.478, 19.090, 41.212),
+	Vector3.new(236.988, 19.090, 40.925),
+	Vector3.new(243.210, 19.090, 40.631),
+	Vector3.new(249.430, 19.090, 40.304),
+	Vector3.new(254.292, 19.090, 39.811),
+	Vector3.new(260.192, 19.090, 38.383),
+	Vector3.new(263.581, 19.090, 34.910),
+	Vector3.new(265.693, 19.090, 30.839),
+	Vector3.new(267.230, 19.090, 25.598),
+	Vector3.new(268.465, 19.090, 20.576),
+	Vector3.new(269.060, 19.145, 14.870),
+	Vector3.new(269.374, 20.179, 8.569),
+	Vector3.new(269.667, 20.250, 2.539),
+	Vector3.new(269.754, 20.252, -4.265),
+	Vector3.new(269.788, 20.252, -10.685),
+	Vector3.new(269.833, 20.252, -17.489),
+	Vector3.new(269.875, 20.252, -23.718),
+	Vector3.new(269.920, 20.252, -30.427),
+	Vector3.new(269.965, 20.252, -37.135),
+	Vector3.new(270.009, 20.252, -43.843),
+	Vector3.new(270.050, 20.252, -49.881),
+	Vector3.new(270.032, 20.252, -55.439),
+	Vector3.new(269.903, 20.252, -61.666),
+	Vector3.new(269.785, 20.252, -67.607),
+	Vector3.new(269.649, 20.252, -73.066),
+	Vector3.new(268.826, 20.275, -77.882),
+	Vector3.new(268.051, 20.316, -82.707),
+	Vector3.new(267.500, 20.321, -87.177),
+	Vector3.new(267.224, 20.321, -93.973),
+	Vector3.new(267.228, 20.271, -99.052),
+	Vector3.new(267.278, 20.321, -104.706),
+	Vector3.new(267.636, 20.321, -110.441),
+	Vector3.new(266.600, 20.258, -116.151),
+	Vector3.new(262.816, 20.321, -120.229),
+	Vector3.new(263.562, 20.321, -124.739),
+	Vector3.new(264.666, 20.282, -129.598),
+	Vector3.new(265.782, 20.252, -134.553),
+	Vector3.new(266.350, 20.252, -137.077),
+	Vector3.new(267.367, 20.252, -141.365),
+	Vector3.new(269.832, 20.252, -145.776),
+	Vector3.new(272.796, 20.252, -149.418),
+	Vector3.new(276.203, 20.252, -152.645),
+	Vector3.new(279.627, 20.285, -155.719),
+	Vector3.new(283.256, 20.225, -158.992),
+	Vector3.new(286.378, 20.320, -161.967),
+	Vector3.new(289.765, 20.321, -165.355),
+	Vector3.new(293.355, 20.216, -168.948),
+	Vector3.new(296.740, 20.298, -172.338),
+	Vector3.new(300.194, 20.321, -175.796),
+	Vector3.new(303.699, 20.256, -179.338),
+	Vector3.new(306.986, 20.321, -182.954),
+	Vector3.new(309.751, 20.287, -186.262),
+	Vector3.new(312.350, 20.319, -190.162),
+	Vector3.new(313.902, 20.321, -194.690),
+	Vector3.new(314.492, 20.321, -199.442),
+	Vector3.new(314.979, 20.321, -204.209),
+	Vector3.new(315.185, 20.241, -208.992),
+	Vector3.new(315.146, 20.252, -212.442),
+	Vector3.new(315.087, 20.252, -217.616),
+	Vector3.new(315.051, 20.252, -221.833),
+	Vector3.new(315.071, 20.252, -226.528),
+	Vector3.new(315.064, 20.252, -231.224),
+	Vector3.new(314.987, 20.252, -235.919),
+	Vector3.new(314.312, 20.252, -240.268),
+	Vector3.new(311.591, 20.252, -244.019),
+	Vector3.new(307.069, 20.252, -246.534),
+	Vector3.new(303.699, 20.252, -248.360),
+	Vector3.new(299.566, 20.252, -250.149),
+	Vector3.new(295.220, 20.252, -252.165),
+	Vector3.new(291.566, 20.184, -254.069),
+	Vector3.new(287.347, 16.448, -256.341),
+	Vector3.new(283.721, 16.424, -258.300),
+	Vector3.new(279.924, 16.424, -260.708),
+	Vector3.new(276.519, 16.424, -263.799),
+	Vector3.new(273.584, 16.424, -267.452),
+	Vector3.new(271.308, 16.424, -271.767),
+	Vector3.new(269.680, 16.424, -276.171),
+	Vector3.new(268.607, 16.424, -280.345),
+	Vector3.new(267.649, 16.424, -284.942),
+	Vector3.new(266.816, 16.424, -289.564),
+	Vector3.new(265.538, 16.438, -296.832),
+	Vector3.new(264.641, 16.424, -301.929),
+	Vector3.new(263.861, 16.424, -306.365),
+	Vector3.new(262.981, 16.424, -311.368),
+	Vector3.new(262.300, 16.424, -315.238),
+	Vector3.new(261.531, 16.428, -320.255),
+	Vector3.new(261.807, 16.424, -324.938),
+	Vector3.new(262.785, 16.424, -329.422),
+	Vector3.new(265.090, 16.424, -333.387),
+	Vector3.new(268.390, 16.424, -336.984),
+	Vector3.new(271.895, 16.424, -339.478),
+	Vector3.new(275.459, 16.424, -341.348),
+	Vector3.new(279.466, 16.424, -343.184),
+	Vector3.new(283.759, 16.424, -345.086),
+	Vector3.new(288.140, 16.424, -347.027),
+	Vector3.new(292.696, 16.424, -349.046),
+	Vector3.new(296.025, 16.424, -350.521),
+	Vector3.new(299.774, 16.424, -352.444),
+	Vector3.new(302.809, 16.424, -354.923),
+	Vector3.new(305.549, 16.424, -358.249),
+	Vector3.new(307.659, 16.424, -362.221),
+	Vector3.new(309.486, 16.355, -366.960),
+	Vector3.new(311.115, 16.356, -371.262),
+	Vector3.new(312.574, 16.356, -375.116),
+	Vector3.new(314.305, 16.356, -379.481),
+	Vector3.new(316.049, 16.356, -383.654),
+	Vector3.new(317.785, 16.356, -387.806),
+	Vector3.new(319.518, 16.356, -391.962),
+	Vector3.new(321.208, 16.356, -396.033),
+	Vector3.new(323.112, 16.356, -400.639),
+	Vector3.new(325.072, 16.667, -405.428),
+	Vector3.new(326.843, 16.700, -409.777),
+	Vector3.new(328.779, 16.693, -414.577),
+	Vector3.new(330.120, 16.694, -418.065),
+	Vector3.new(332.047, 16.694, -423.381),
+	Vector3.new(333.569, 16.694, -427.824),
+	Vector3.new(335.115, 16.694, -432.360),
+	Vector3.new(336.665, 16.694, -437.696),
+	Vector3.new(337.710, 16.694, -441.484),
+	Vector3.new(338.806, 16.694, -445.456),
+	Vector3.new(339.785, 16.694, -449.358),
+	Vector3.new(340.507, 16.694, -453.901),
+	Vector3.new(341.182, 16.694, -458.257),
+	Vector3.new(341.936, 16.694, -462.697),
+	Vector3.new(342.715, 16.698, -467.421),
+	Vector3.new(360, 16, -485),
+	Vector3.new(339.342, 16.701, -469.334),
+	Vector3.new(335.607, 16.701, -469.473),
+	Vector3.new(330.436, 16.701, -469.666),
+	Vector3.new(325.552, 16.701, -469.848),
+	Vector3.new(321.145, 16.703, -469.912),
+	Vector3.new(316.737, 16.693, -469.853),
+	Vector3.new(313.383, 16.682, -469.826),
+	Vector3.new(307.921, 16.683, -469.802),
+	Vector3.new(303.609, 16.683, -469.877),
+	Vector3.new(299.105, 16.683, -469.943),
+	Vector3.new(293.739, 16.683, -470.014),
+	Vector3.new(288.756, 16.703, -470.076),
+	Vector3.new(282.815, 16.697, -470.150),
+	Vector3.new(277.640, 16.697, -470.194),
+	Vector3.new(272.753, 16.697, -470.232),
+	Vector3.new(267.866, 16.697, -470.252),
+	Vector3.new(262.422, 16.697, -469.933),
+	Vector3.new(257.623, 16.685, -468.040),
+	Vector3.new(253.288, 16.657, -465.998),
+	Vector3.new(248.102, 16.356, -463.751),
+	Vector3.new(241.972, 16.356, -461.540),
+	Vector3.new(235.906, 16.356, -459.436),
+	Vector3.new(230.202, 17.356, -457.458),
+	Vector3.new(224.687, 20.700, -455.461),
+	Vector3.new(219.169, 20.934, -453.856),
+	Vector3.new(214.155, 20.934, -453.052),
+	Vector3.new(209.098, 20.934, -452.591),
+	Vector3.new(204.119, 20.934, -452.392),
+	Vector3.new(198.659, 20.934, -452.212),
+	Vector3.new(192.528, 18.416, -452.111),
+	Vector3.new(186.107, 17.790, -452.205),
+	Vector3.new(180.262, 17.790, -452.291),
+	Vector3.new(174.800, 17.790, -452.371),
+	Vector3.new(168.379, 17.790, -452.407),
+	Vector3.new(162.821, 17.790, -452.412),
+	Vector3.new(156.495, 17.790, -452.418),
+	Vector3.new(149.499, 17.790, -452.425),
+	Vector3.new(144.323, 17.790, -452.430),
+	Vector3.new(137.998, 17.790, -452.436),
+	Vector3.new(131.768, 17.790, -452.442),
+	Vector3.new(126.593, 17.790, -452.447),
+	Vector3.new(119.310, 17.790, -452.454),
+	Vector3.new(111.968, 17.790, -452.020),
+	Vector3.new(106.328, 17.790, -450.339),
+	Vector3.new(102.424, 17.790, -446.519),
+	Vector3.new(98.803, 17.790, -442.443),
+	Vector3.new(95.206, 17.790, -436.572),
+	Vector3.new(93.275, 17.790, -429.961),
+	Vector3.new(92.627, 17.790, -422.422),
+	Vector3.new(92.793, 17.791, -415.720),
+	Vector3.new(93.142, 17.790, -409.981),
+	Vector3.new(94.268, 17.790, -403.966),
+	Vector3.new(96.789, 17.790, -398.562),
+	Vector3.new(102.002, 17.790, -393.634),
+	Vector3.new(107.357, 17.790, -390.875),
+	Vector3.new(112.686, 17.790, -388.472),
+	Vector3.new(119.394, 17.790, -385.636),
+	Vector3.new(123.768, 17.790, -383.929),
+	Vector3.new(130.563, 17.790, -381.306),
+	Vector3.new(133.319, 17.790, -377.619),
+	Vector3.new(133.336, 17.790, -372.445),
+	Vector3.new(131.733, 17.790, -364.773),
+	Vector3.new(129.847, 18.953, -359.062),
+	Vector3.new(126.494, 19.157, -353.483),
+	Vector3.new(122.434, 19.187, -348.508),
+	Vector3.new(118.492, 19.152, -343.684),
+	Vector3.new(114.672, 19.157, -339.008),
+	Vector3.new(111.143, 19.157, -335.373),
+	Vector3.new(105.743, 19.157, -331.077),
+	Vector3.new(100.270, 19.157, -327.379),
+	Vector3.new(93.517, 18.417, -324.784),
+	Vector3.new(85.610, 10.765, -323.941),
+	Vector3.new(78.915, 4.830, -323.530),
+	Vector3.new(72.114, 4.871, -323.566),
+	Vector3.new(66.291, 4.871, -324.064),
+	Vector3.new(59.911, 4.871, -324.784),
+	Vector3.new(54.228, 4.871, -325.652),
+	Vector3.new(46.911, 4.871, -327.181),
+	Vector3.new(40.503, 4.871, -328.798),
+	Vector3.new(35.086, 4.871, -330.417),
+	Vector3.new(28.359, 4.871, -332.909),
+	Vector3.new(22.128, 4.871, -335.873),
+	Vector3.new(16.515, 4.871, -338.574),
+	Vector3.new(11.725, 4.871, -342.484),
+	Vector3.new(8.711, 4.871, -346.568),
+	Vector3.new(5.514, 4.871, -352.024),
+	Vector3.new(3.155, 4.871, -357.051),
+	Vector3.new(1.248, 4.871, -362.068),
+	Vector3.new(-0.957, 4.871, -367.894),
+	Vector3.new(-3.954, 4.871, -370.950),
+	Vector3.new(-5.532, 4.871, -365.533),
+	Vector3.new(-4.351, 4.871, -358.649),
+	Vector3.new(-3.101, 4.871, -351.766),
+	Vector3.new(-1.889, 4.871, -345.071),
+	Vector3.new(-0.678, 4.871, -338.376),
+	Vector3.new(0.362, 4.871, -332.624),
+	Vector3.new(1.592, 4.871, -325.834),
+	Vector3.new(2.688, 5.392, -319.995),
+	Vector3.new(3.787, 10.808, -314.364),
+	Vector3.new(4.686, 15.722, -309.390),
+	Vector3.new(4.932, 20.573, -304.156),
+	Vector3.new(3.879, 20.866, -299.333),
+	Vector3.new(2.281, 20.857, -293.513),
+	Vector3.new(0.035, 20.866, -288.984),
+	Vector3.new(-3.822, 20.866, -285.891),
+	Vector3.new(-9.130, 20.866, -283.457),
+	Vector3.new(-14.838, 20.866, -281.828),
+	Vector3.new(-20.272, 20.866, -281.349),
+	Vector3.new(-25.447, 20.866, -281.349),
+	Vector3.new(-31.197, 20.866, -281.306),
+	Vector3.new(-37.911, 20.866, -280.250),
+	Vector3.new(-42.257, 20.866, -275.718),
+	Vector3.new(-44.104, 20.866, -270.632),
+	Vector3.new(-44.643, 20.866, -264.716),
+	Vector3.new(-45.104, 20.866, -257.928),
+	Vector3.new(-45.332, 20.866, -252.470),
+	Vector3.new(-45.515, 20.866, -246.915),
+	Vector3.new(-45.617, 20.866, -239.728),
+	Vector3.new(-45.721, 20.866, -231.967),
+	Vector3.new(-45.823, 20.736, -224.301),
+	Vector3.new(-45.909, 20.679, -217.784),
+	Vector3.new(-45.993, 20.679, -211.460),
+	Vector3.new(-46.076, 20.679, -205.519),
+	Vector3.new(-48.487, 20.679, -202.268),
+	Vector3.new(-52.237, 20.679, -199.736),
+	Vector3.new(-58.511, 20.679, -195.499),
+	Vector3.new(-63.274, 20.679, -192.277),
+	Vector3.new(-68.333, 20.679, -188.810),
+	Vector3.new(-71.137, 20.679, -183.901),
+	Vector3.new(-70.443, 20.679, -178.344),
+	Vector3.new(-68.529, 20.896, -172.020),
+	Vector3.new(-66.415, 21.138, -166.364),
+	Vector3.new(-63.895, 21.138, -159.633),
+	Vector3.new(-61.380, 21.138, -153.105),
+	Vector3.new(-58.423, 20.983, -145.928),
+	Vector3.new(-56.415, 20.985, -141.158),
+	Vector3.new(-53.813, 20.985, -134.975),
+	Vector3.new(-51.545, 20.985, -129.586),
+	Vector3.new(-48.757, 20.985, -122.962),
+	Vector3.new(-46.860, 20.985, -118.457),
+}
+
+local REACH_DISTANCE = 4       -- How close (studs) counts as "reached"
+local STUCK_TIMEOUT = 8        -- Seconds without progress before giving up on a point
+local MAX_TOTAL_TIME = 2400    -- Safety cap for whole run
+local UPDATE_INTERVAL = 0.1    -- Wait between MoveTo calls
+
+local function walkTo(target)
+	local lastPos = rootPart.Position
+	local lastProgressTime = os.clock()
+
+	while true do
+		if not character.Parent or not humanoid.Parent or humanoid.Health <= 0 then
+			return false, "died"
+		end
+
+		local currentPos = rootPart.Position
+		local distance = (Vector3.new(currentPos.X, 0, currentPos.Z)
+		                 - Vector3.new(target.X, 0, target.Z)).Magnitude
+
+		if distance <= REACH_DISTANCE then
+			humanoid:MoveTo(currentPos) -- stop
+			return true
+		end
+
+		-- Detect no progress
+		if (currentPos - lastPos).Magnitude > 1 then
+			lastPos = currentPos
+			lastProgressTime = os.clock()
+		elseif os.clock() - lastProgressTime > STUCK_TIMEOUT then
+			humanoid:MoveTo(currentPos)
+			return false, "stuck"
+		end
+
+		humanoid:MoveTo(target)
+		task.wait(UPDATE_INTERVAL)
+	end
+end
+
+local runStart = os.clock()
+for i, pos in ipairs(waypoints) do
+	if os.clock() - runStart > MAX_TOTAL_TIME then
+		warn("[WaypointWalker] Max total time reached, stopping.")
+		break
+	end
+
+	print(string.format("[WaypointWalker] Walking to #%d: %s", i, tostring(pos)))
+	local ok, reason = walkTo(pos)
+
+	if ok then
+		print(string.format("[WaypointWalker] Reached #%d", i))
+	else
+		warn(string.format("[WaypointWalker] Failed to reach #%d (%s)", i, reason or "unknown"))
+		if reason == "died" then break end
+	end
+end
+
+print("[WaypointWalker] Done.")
