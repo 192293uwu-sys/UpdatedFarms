@@ -2057,10 +2057,19 @@ local function fireEvent(key)
 			Event:FireServer()
 		end)
 		if not ok then warn("[Player] Q failed: " .. tostring(err)) end
+
 	elseif key == "e" then
 		local ok, err = pcall(function()
-			local Event = player.Backpack:GetChildren()[2].spellEvent
-			Event:FireServer()
+			local backpack = player.Backpack
+			local Event
+
+			if player.Name:lower() == "natalka04251" then
+				Event = backpack:GetChildren()[2].abilityEvent
+				Event:FireServer()
+			else
+				Event = backpack:GetChildren()[2].spellEvent
+				Event:FireServer()
+			end
 		end)
 		if not ok then warn("[Player] E failed: " .. tostring(err)) end
 	end
