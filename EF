@@ -1311,7 +1311,7 @@ local WAYPOINTS =
     {pos = Vector3.new(-727.984, -24.406, 483.803), yaw = -80.2, wait = 0.38},
     {pos = Vector3.new(-727.984, -24.406, 483.803), yaw = -79.2, wait = 0.32},
     {pos = Vector3.new(-727.984, -24.406, 483.803), yaw = -78.1, wait = 0.28},
-    {pos = Vector3.new(-727.984, -24.406, 483.803), yaw = -77.0, wait = 0.27},
+    {pos = Vector3.new(-727.984, -24.406, 483.803), yaw = -77.0, wait = 0.57},
     {pos = Vector3.new(-727.826, -24.406, 483.765), yaw = -76.3, wait = 0.00, events = {{key = "q", at = 0.00}}},
     {pos = Vector3.new(-726.793, -24.406, 483.512), yaw = -76.0, wait = 0.00},
     {pos = Vector3.new(-725.654, -24.406, 483.225), yaw = -75.5, wait = 0.00},
