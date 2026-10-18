@@ -2063,8 +2063,8 @@ local function fireEvent(key)
 			local backpack = player.Backpack
 			local Event
 
-			if player.Name:lower() == "natalka04251" then
-				Event = backpack.Geyser.abilityEvent
+			if player.Name:lower() == "tewf4vz" then
+				Event = backpack.["Jade Rain"].abilityEvent
 				Event:FireServer()
 			else
 				Event = backpack:GetChildren()[2].spellEvent
