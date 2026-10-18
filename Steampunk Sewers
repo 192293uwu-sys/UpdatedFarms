@@ -1944,14 +1944,18 @@ local function walkTo(target)
 end
 
 local runStart = os.clock()
-for i, pos in ipairs(waypoints) do
+-- Renamed 'pos' to 'waypoint' for clarity
+for i, waypoint in ipairs(waypoints) do
 	if os.clock() - runStart > MAX_TOTAL_TIME then
 		warn("[WaypointWalker] Max total time reached, stopping.")
 		break
 	end
 
-	print(string.format("[WaypointWalker] Walking to #%d: %s", i, tostring(pos)))
-	local ok, reason = walkTo(pos)
+	-- Changed 'pos' to 'waypoint.pos'
+	print(string.format("[WaypointWalker] Walking to #%d: %s", i, tostring(waypoint.pos)))
+	
+	-- FIX: Pass 'waypoint.pos' (the Vector3) instead of the whole table
+	local ok, reason = walkTo(waypoint.pos)
 
 	if ok then
 		print(string.format("[WaypointWalker] Reached #%d", i))
