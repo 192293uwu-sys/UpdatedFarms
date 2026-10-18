@@ -5,7 +5,7 @@ local player = Players.LocalPlayer
 
 local WALK_TARGET = Vector3.new(50, 5, -50) -- ground level position
 local ARRIVE_RADIUS = 6 -- studs — the "close enough" detection
-local REQUIRED_PLAYERS = { "kovm","tewf4vz","natalka04251" } -- every username running this script
+local REQUIRED_PLAYERS = {"tewf4vz" } -- every username running this script
 if not table.find(REQUIRED_PLAYERS, player.Name) then
 	table.insert(REQUIRED_PLAYERS, player.Name)
 end
