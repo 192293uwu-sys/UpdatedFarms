@@ -1,0 +1,293 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+
+local DRY_RUN = false 
+
+local RARITY_COLORS = {
+    {color = {255, 0, 0}, name = "Ult"},
+    {color = {244, 154, 9}, name = "Legendary"},
+    {color = {146, 70, 159}, name = "Epic"},
+    {color = {75, 77, 195}, name = "Rare"},
+    {color = {91, 194, 80}, name = "Uncommon"},
+    {color = {152, 152, 152}, name = "Common"}
+}
+
+local DEFAULT_RARITIES = {
+    Epic = true,
+    Legendary = true,
+    Ult = true
+}
+
+local RARITY_CONFIG = {
+    GS = { 
+        Common = true, Uncommon = true, Rare = true, Epic = true, Legendary = true, Ult = true 
+    },
+}
+
+local CATEGORY_IDS = {
+    GS = {
+        ["5251638613"] = true, ["5251638369"] = true,
+        ["11558822668"] = true, ["11558824087"] = true, ["11558828185"] = true, ["11558826292"] = true, 
+        ["11558828377"] = true, ["11558826454"] = true, ["11558828522"] = true, ["11558830025"] = true
+    },
+    NL = {
+        ["9821875398"] = true, ["9821873895"] = true, ["8352073741"] = true, ["8349310824"] = true, 
+        ["8349312958"] = true, ["8349311950"] = true, ["8352073326"] = true, ["8352073533"] = true, 
+        ["8349313160"] = true, ["8349312125"] = true
+    },
+    EF = {
+        ["102574845507566"] = true, ["103550525606563"] = true, ["6871201475"] = true, ["6871202291"] = true, 
+        ["6871200501"] = true, ["6871199079"] = true, ["6871200392"] = true, ["6871198942"] = true, 
+        ["6871200604"] = true, ["6871199225"] = true
+    },
+    AT = {
+        ["6187577966"] = true, ["6187578571"] = true, ["6187424687"] = true, ["6187579195"] = true, 
+        ["6187591623"] = true, ["6187579128"] = true, ["6187424401"] = true, ["6187573499"] = true
+    },
+    VC = {
+        ["5250372766"] = true, ["5250370565"] = true, ["5250429234"] = true, ["5250431969"] = true, 
+        ["5250429535"] = true, ["5250432232"] = true, ["5250428923"] = true, ["5250431666"] = true
+    },
+    OO = {
+        ["4626316477"] = true, ["4626315903"] = true, ["4626315191"] = true, ["4626314075"] = true, 
+        ["4626315123"] = true, ["4626313967"] = true, ["4626315259"] = true, ["4626314148"] = true
+    },
+    SS = {
+        ["4110989084"] = true, ["4110999126"] = true, ["4111013795"] = true, ["4111004318"] = true, 
+        ["4111013455"] = true, ["4111003861"] = true, ["4111025343"] = true, ["4111005231"] = true
+    },
+    GH = {
+        ["3732508543"] = true, ["3733504526"] = true, ["3734425496"] = true, ["3734370173"] = true, 
+        ["3734425200"] = true, ["3734369793"] = true, ["3734425730"] = true, ["3734370413"] = true
+    },
+    CN = {
+        ["3434834348"] = true, ["3434836386"] = true, ["3484534350"] = true, ["3484510730"] = true, 
+        ["3484534138"] = true, ["3484510512"] = true, ["3484534540"] = true, ["3484510981"] = true
+    },
+    SP = {
+        ["3275252865"] = true, ["3275248918"] = true, ["3275331997"] = true, ["3275329787"] = true, 
+        ["3275331615"] = true, ["3275329281"] = true, ["3275331790"] = true, ["3275329528"] = true
+    },
+    UW = {
+        ["3115075941"] = true, ["3115077967"] = true, ["3114574312"] = true, ["3114574188"] = true, 
+        ["3114574029"] = true, ["3114573834"] = true, ["3114574581"] = true, ["3114574459"] = true
+    },
+    KC = {
+        ["3038589569"] = true, ["3038587428"] = true, ["3039047423"] = true, ["3039044301"] = true, 
+        ["3039047613"] = true, ["3039044081"] = true, ["3039047795"] = true, ["3039044487"] = true
+    },
+    PI = {
+        ["2968941706"] = true, ["2968945104"] = true, ["2986398325"] = true, ["2986402449"] = true, 
+        ["2986398641"] = true, ["2986402737"] = true, ["2986398108"] = true, ["2986401967"] = true
+    },
+    WO_DT = {
+        ["2513301363"] = true, ["2718089746"] = true
+    }
+}
+
+local ID_TO_CATEGORY = {}
+for category, ids in pairs(CATEGORY_IDS) do
+    for id in pairs(ids) do
+        ID_TO_CATEGORY[id] = category
+    end
+end
+
+local function getAssetId(imageStr)
+    if not imageStr then return nil end
+    return string.match(imageStr, "%d+")
+end
+
+local function getImageColorFromSlot(slot)
+    local success, result = pcall(function() return slot.ImageColor3 end)
+    if success and result then return result end
+    
+    for _, desc in ipairs(slot:GetDescendants()) do
+        local ok, col = pcall(function() return desc.ImageColor3 end)
+        if ok and col then return col end
+    end
+    
+    for _, child in ipairs(slot:GetChildren()) do
+        local ok, col = pcall(function() return child.ImageColor3 end)
+        if ok and col then return col end
+    end
+    
+    return nil
+end
+
+local function getRarityName(color3)
+    if not color3 then return nil end
+    local r = math.round(color3.R * 255)
+    local g = math.round(color3.G * 255)
+    local b = math.round(color3.B * 255)
+    
+    for _, entry in ipairs(RARITY_COLORS) do
+        local tr, tg, tb = entry.color[1], entry.color[2], entry.color[3]
+        if math.abs(r - tr) <= 3 and math.abs(g - tg) <= 3 and math.abs(b - tb) <= 3 then
+            return entry.name
+        end
+    end
+    return nil
+end
+
+local function scanAndSell()
+    
+    local playerGui = player:FindFirstChild("PlayerGui")
+    local sellShop = playerGui and playerGui:FindFirstChild("sellShop")
+    if not sellShop then 
+        return 
+    end
+    
+    local frame = sellShop:FindFirstChild("Frame")
+    local innerFrame = frame and frame:FindFirstChild("innerFrame")
+    local rightSideFrame = innerFrame and innerFrame:FindFirstChild("rightSideFrame")
+    local scrollingFrame = rightSideFrame and rightSideFrame:FindFirstChild("ScrollingFrame")
+    
+    if not scrollingFrame then
+        return
+    end
+
+    local dungeonNameObj = workspace:FindFirstChild("dungeonName")
+    local isInDungeon = false
+    if dungeonNameObj and dungeonNameObj:IsA("ValueBase") and dungeonNameObj.Value ~= "" then
+        isInDungeon = true
+    else
+    end
+
+
+    local sellData = { helmet = {}, ability = {}, chest = {}, weapon = {} }
+    local toSellCount = 0
+    local slotsChecked = 0
+
+    for _, slot in ipairs(scrollingFrame:GetChildren()) do
+        if slot:IsA("GuiObject") then
+            slotsChecked = slotsChecked + 1
+            
+            local filler = slot:FindFirstChild("filler")
+            local itemImage = filler and filler:FindFirstChild("itemImage") or slot:FindFirstChild("itemImage")
+            
+            if itemImage and itemImage:IsA("ImageLabel") then
+                local assetId = getAssetId(itemImage.Image)
+                
+                if assetId then
+                    local category = ID_TO_CATEGORY[assetId]
+                    local isKeep = false
+                    
+                    local itemTypeObj = slot:FindFirstChild("itemType")
+                    local rarityName = nil
+                    
+                    if itemTypeObj then
+                        local rarityObj = itemTypeObj:FindFirstChild("rarity")
+                        if rarityObj and rarityObj:IsA("StringValue") and rarityObj.Value ~= "" then
+                            local val = string.lower(rarityObj.Value)
+                            if val == "ult" or val == "ultimate" then rarityName = "Ult"
+                            elseif val == "legendary" then rarityName = "Legendary"
+                            elseif val == "epic" then rarityName = "Epic"
+                            elseif val == "rare" then rarityName = "Rare"
+                            elseif val == "uncommon" then rarityName = "Uncommon"
+                            elseif val == "common" then rarityName = "Common"
+                            else rarityName = rarityObj.Value end
+                        end
+                    end
+
+                    if not rarityName then
+                        local slotColor = getImageColorFromSlot(slot)
+                        rarityName = getRarityName(slotColor)
+                    end
+
+                    if rarityName == "Legendary" or rarityName == "Ult" then
+                        isKeep = true
+                    elseif rarityName then
+                        if category then
+                            local allowedRarities = RARITY_CONFIG[category] or DEFAULT_RARITIES
+                            if allowedRarities[rarityName] then
+                                isKeep = true
+                            end
+                        elseif rarityName == "Epic" then
+                            isKeep = false
+                        end
+                    end
+
+                    if not isKeep then
+                        if itemTypeObj then
+                            local itemType = itemTypeObj.Value
+                            local uniqueNumObj = itemTypeObj:FindFirstChild("uniqueItemNum")
+                            if not uniqueNumObj then uniqueNumObj = slot:FindFirstChild("uniqueItemNum") end
+                            
+                            local uniqueIdObj = itemTypeObj:FindFirstChild("uniqueItemId")
+                            if not uniqueIdObj then uniqueIdObj = slot:FindFirstChild("uniqueItemId") end
+
+                            local formattedString = nil
+                            
+                            if isInDungeon then
+                                if uniqueNumObj then
+                                    formattedString = tostring(uniqueNumObj.Value)
+                                end
+                            else
+                                if uniqueNumObj and uniqueIdObj then
+                                    formattedString = tostring(uniqueNumObj.Value) .. ":" .. tostring(uniqueIdObj.Value)
+                                end
+                            end
+
+                            if formattedString then
+                                if not sellData[itemType] then sellData[itemType] = {} end
+                                table.insert(sellData[itemType], formattedString)
+                                toSellCount = toSellCount + 1
+                            else
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if toSellCount > 0 then
+        for cat, items in pairs(sellData) do
+            if #items > 0 then
+                print("[" .. cat .. "]:")
+                for _, item in ipairs(items) do
+                    print("  - " .. item)
+                end
+            end
+        end
+    else
+    end
+
+    local openSellShop = ReplicatedStorage:FindFirstChild("remotes") and ReplicatedStorage.remotes:FindFirstChild("openSellShop")
+    if openSellShop and firesignal then
+        local success, err = pcall(function()
+            firesignal(openSellShop.OnClientEvent)
+        end)
+        if success then
+        else
+        end
+    else
+    end
+
+    if sellShop then
+        sellShop.Enabled = false
+    end
+
+    if not DRY_RUN then
+        if toSellCount > 0 then
+            local sellEvent = ReplicatedStorage:FindFirstChild("remotes") and ReplicatedStorage.remotes:FindFirstChild("sellItemEvent")
+            if sellEvent then
+                sellEvent:FireServer(sellData)
+            else
+            end
+        end
+    else
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.H then
+        if gameProcessed then
+        else
+            scanAndSell()
+        end
+    end
+end)
