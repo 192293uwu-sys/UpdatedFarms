@@ -1,5 +1,6 @@
+task.wait(10)
+
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
@@ -283,11 +284,19 @@ local function scanAndSell()
     end
 end
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.H then
-        if gameProcessed then
-        else
-            scanAndSell()
-        end
+-- Wait for the sellShop GUI to load, then run once
+task.spawn(function()
+    local playerGui = player:WaitForChild("PlayerGui", 30)
+    if not playerGui then
+        warn("[AutoSell] PlayerGui did not load in time.")
+        return
     end
+    local sellShop = playerGui:WaitForChild("sellShop", 30)
+    if not sellShop then
+        warn("[AutoSell] sellShop GUI did not load in time.")
+        return
+    end
+    -- small extra delay to let slots populate
+    task.wait(1)
+    scanAndSell()
 end)
