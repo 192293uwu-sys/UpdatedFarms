@@ -5,6 +5,13 @@ local player = Players.LocalPlayer
 
 local WALK_TARGET = Vector3.new(50, 5, -50) -- ground level position
 local ARRIVE_RADIUS = 6 -- studs — the "close enough" detection
+
+-- ── SYNC TOGGLE ────────────────────────────────────────────────────────
+-- true  = wait for / stay in sync with the players in REQUIRED_PLAYERS
+-- false = run solo, completely ignore other players (no waiting anywhere)
+local REQUIRE_PLAYERS = false
+-- ───────────────────────────────────────────────────────────────────────
+
 local REQUIRED_PLAYERS = {"tewf4vz" } -- every username running this script
 if not table.find(REQUIRED_PLAYERS, player.Name) then
 	table.insert(REQUIRED_PLAYERS, player.Name)
