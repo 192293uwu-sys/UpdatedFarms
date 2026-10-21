@@ -2006,7 +2006,7 @@ local YAW_RESPONSIVENESS = 200
 -- Put EVERY username that runs this script here (yours can be in the
 -- list too, it is skipped automatically). Each client watches the others'
 -- characters to know how far along the path they are.
-local SYNC_PLAYERS = REQUIRED_PLAYERS
+local SYNC_PLAYERS = REQUIRE_PLAYERS and REQUIRED_PLAYERS or {}
 
 local SYNC_WAIT_THRESHOLD = 0.5 -- any waypoint with wait >= this is a sync point
 local SYNC_ON_EVENTS      = false -- true = also stop before every Q / E (makes walking stop-and-go)
